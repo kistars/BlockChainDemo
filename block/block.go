@@ -12,6 +12,7 @@ type Block struct {
 	Data          []byte
 	PrevBlockHash []byte
 	Hash          []byte
+	Nonce         int // 'number once', arbitrary number that's only used once
 }
 
 // calculate the hash of a block
@@ -32,6 +33,9 @@ func NewBlock(data string, prevBlockHash []byte) *Block {
 		Hash:          []byte{},
 	}
 
-	block.SetHash()
+	pof := NewProofOfWork(block)
+	nonce, hash := pof.Run()
+	block.Hash = hash
+	block.Nonce = nonce
 	return block
 }
