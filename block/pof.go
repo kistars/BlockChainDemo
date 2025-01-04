@@ -31,7 +31,7 @@ func IntToHex(a int64) []byte {
 func (pow *ProofOfWork) prepareData(nonce int) []byte {
 	data := bytes.Join([][]byte{
 		pow.Block.PrevBlockHash,
-		pow.Block.Data,
+		pow.Block.HashTransactions(),
 		IntToHex(pow.Block.Timestamp),
 		IntToHex(int64(targetBits)),
 		IntToHex(int64(nonce)),
@@ -47,7 +47,7 @@ func (pow *ProofOfWork) Run() (int, []byte) {
 	nonce := 0
 	maxNonce := math.MaxInt64
 
-	fmt.Printf("Mining the block containing \"%s\"\n", pow.Block.Data)
+	fmt.Printf("Mining the block containing \n")
 
 	for nonce < maxNonce {
 		data := pow.prepareData(nonce)
