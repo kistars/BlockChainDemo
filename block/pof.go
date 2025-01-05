@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"strconv"
 )
 
 const targetBits = 24 //
@@ -21,11 +20,6 @@ func NewProofOfWork(b *Block) *ProofOfWork {
 	// SHA-256, left shift 'targetBits'
 	target = target.Lsh(target, uint(256-targetBits))
 	return &ProofOfWork{Block: b, Target: target}
-}
-
-func IntToHex(a int64) []byte {
-	res := strconv.FormatInt(a, 16)
-	return []byte(res)
 }
 
 func (pow *ProofOfWork) prepareData(nonce int) []byte {

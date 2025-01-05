@@ -1,7 +1,10 @@
 package block
 
 import (
+	"bytes"
+	"crypto/ecdsa"
 	"encoding/hex"
+	"errors"
 	"github.com/boltdb/bolt"
 	"log"
 )
@@ -90,7 +93,7 @@ func (bc *Blockchain) FindUnspentTransactions(address string) []Transaction {
 			txID := hex.EncodeToString(tx.ID)
 
 		Outputs:
-			for outIdx, out := range tx.Vout {
+			for outIdx, out := range tx.VOutputs {
 				// Was the out spent?
 				if spentTXOutputs[txID] != nil {
 					for _, spendOut := range spentTXOutputs[txID] {
@@ -100,16 +103,16 @@ func (bc *Blockchain) FindUnspentTransactions(address string) []Transaction {
 					}
 				}
 
-				if out.CanBeUnlockedWith(address) {
+				if out.IsLockedWithKey([]byte(address)) {
 					unspentTXs = append(unspentTXs, *tx)
 				}
 			}
 
 			if !tx.IsCoinbase() {
-				for _, in := range tx.Vin {
-					if in.CanUnlockOutputWith(address) {
+				for _, in := range tx.VInputs {
+					if in.UsesKey([]byte(address)) {
 						inTxID := hex.EncodeToString(in.TxID)
-						spentTXOutputs[inTxID] = append(spentTXOutputs[inTxID], in.Vout)
+						spentTXOutputs[inTxID] = append(spentTXOutputs[inTxID], in.OutputIdx)
 					}
 				}
 			}
@@ -130,8 +133,8 @@ func (bc *Blockchain) FindUTXO(address string) []TXOutput {
 	transactions := bc.FindUnspentTransactions(address)
 
 	for _, tx := range transactions {
-		for _, out := range tx.Vout {
-			if out.CanBeUnlockedWith(address) {
+		for _, out := range tx.VOutputs {
+			if out.IsLockedWithKey([]byte(address)) {
 				UTXOs = append(UTXOs, out)
 			}
 		}
@@ -155,8 +158,8 @@ Work:
 	for _, tx := range unspentTXs {
 		txID := hex.EncodeToString(tx.ID)
 
-		for outIdx, output := range tx.Vout {
-			if output.CanBeUnlockedWith(address) && accumulated < amount {
+		for outIdx, output := range tx.VOutputs {
+			if output.IsLockedWithKey([]byte(address)) && accumulated < amount {
 				accumulated += output.Value
 				unspentOutputs[txID] = append(unspentOutputs[txID], outIdx)
 
@@ -170,6 +173,54 @@ Work:
 	return accumulated, unspentOutputs
 }
 
+// todo:
 func (bc *Blockchain) MineBlock(transactions []*Transaction) {
 
+}
+
+func (bc *Blockchain) FindTransaction(ID []byte) (Transaction, error) {
+	bci := bc.Iterator()
+	for {
+		block := bci.Next()
+		for _, tx := range block.Transactions {
+			if bytes.Compare(tx.ID, ID) == 0 {
+				return *tx, nil
+			}
+		}
+
+		// genesis block
+		if len(block.PrevBlockHash) == 0 {
+			break
+		}
+	}
+
+	return Transaction{}, errors.New("transaction is not found")
+}
+
+func (bc *Blockchain) SignTransaction(tx *Transaction, privateKey ecdsa.PrivateKey) {
+	prevTXs := make(map[string]Transaction)
+
+	for _, input := range tx.VInputs {
+		prevTX, err := bc.FindTransaction(input.TxID)
+		if err != nil {
+			log.Fatal(err)
+		}
+		prevTXs[hex.EncodeToString(input.TxID)] = prevTX
+	}
+
+	tx.Sign(privateKey, prevTXs)
+}
+
+func (bc *Blockchain) VerifyTransaction(tx *Transaction) bool {
+	prevTXs := make(map[string]Transaction)
+
+	for _, input := range tx.VInputs {
+		prevTX, err := bc.FindTransaction(input.TxID)
+		if err != nil {
+			log.Fatal(err)
+		}
+		prevTXs[hex.EncodeToString(input.TxID)] = prevTX
+	}
+
+	return tx.Verify(prevTXs)
 }

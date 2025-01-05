@@ -7,8 +7,8 @@ import (
 )
 
 func TestIntToHex(t *testing.T) {
-	a := IntToHex(1111)
-	t.Log(string(a))
+	a := IntToHex(16)
+	fmt.Printf("%x\n", a)
 }
 
 func TestBytesJoin(t *testing.T) {
