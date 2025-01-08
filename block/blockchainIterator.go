@@ -12,7 +12,7 @@ func (bi *BlockchainIterator) Next() *Block {
 	_ = bi.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(blocksBucket))
 		data := b.Get(bi.currentHash)
-		block = Deserializaion(data)
+		block = DeserializeBlock(data)
 		return nil
 	})
 

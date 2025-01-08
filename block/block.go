@@ -2,7 +2,6 @@ package block
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/gob"
 	"time"
 )
@@ -13,40 +12,35 @@ type Block struct {
 	PrevBlockHash []byte
 	Hash          []byte
 	Nonce         int // 'number once', arbitrary number that's only used once
+	Height        int
 }
 
-// calculate the hash of a block
-//func (b *Block) SetHash() {
-//	ts := []byte(strconv.FormatInt(b.Timestamp, 10))
-//	headers := bytes.Join([][]byte{b.PrevBlockHash, b.Data, ts}, []byte{})
-//	hash := sha256.Sum256(headers)
-//
-//	b.Hash = hash[:]
-//}
-
-// genesis block
-func GenesisBlock(coinbase []*Transaction) *Block {
-	return NewBlock(coinbase, []byte{})
+// NewGenesisBlock creates and returns genesis Block
+func NewGenesisBlock(coinbase *Transaction) *Block {
+	return NewBlock([]*Transaction{coinbase}, []byte{}, 0)
 }
 
-// Create a new block
-func NewBlock(transactions []*Transaction, prevBlockHash []byte) *Block {
+// NewBlock creates and returns Block
+func NewBlock(transactions []*Transaction, prevBlockHash []byte, height int) *Block {
 	block := &Block{
 		Timestamp:     time.Now().Unix(),
 		Transactions:  transactions,
 		PrevBlockHash: prevBlockHash,
 		Hash:          []byte{},
+		Nonce:         0,
+		Height:        height,
 	}
+	pow := NewProofOfWork(block)
+	nonce, hash := pow.Run()
 
-	pof := NewProofOfWork(block)
-	nonce, hash := pof.Run()
-	block.Hash = hash
+	block.Hash = hash[:]
 	block.Nonce = nonce
+
 	return block
 }
 
 // serialization
-func (b *Block) Serialization() []byte {
+func (b *Block) Serialize() []byte {
 	var buf bytes.Buffer // store the serialized data
 	encoder := gob.NewEncoder(&buf)
 	_ = encoder.Encode(b)
@@ -54,7 +48,7 @@ func (b *Block) Serialization() []byte {
 	return buf.Bytes()
 }
 
-func Deserializaion(d []byte) *Block {
+func DeserializeBlock(d []byte) *Block {
 	var block Block
 	buf := bytes.NewReader(d)
 	decoder := gob.NewDecoder(buf)
@@ -63,14 +57,13 @@ func Deserializaion(d []byte) *Block {
 }
 
 func (b *Block) HashTransactions() []byte {
-	var txHashes [][]byte
-	var txHash [32]byte
+	var transactions [][]byte
 
 	for _, tx := range b.Transactions {
-		txHashes = append(txHashes, tx.ID)
+		transactions = append(transactions, tx.Serialize())
 	}
 
-	txHash = sha256.Sum256(bytes.Join(txHashes, []byte{}))
-
-	return txHash[:]
+	// The root of the tree will serve as the unique identifier of block’s transactions
+	mTree := NewMerkleTree(transactions)
+	return mTree.RootNode.Data
 }

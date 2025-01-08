@@ -41,7 +41,7 @@ func (pow *ProofOfWork) Run() (int, []byte) {
 	nonce := 0
 	maxNonce := math.MaxInt64
 
-	fmt.Printf("Mining the block containing \n")
+	fmt.Printf("Mining the block targeting %x\n", pow.Target)
 
 	for nonce < maxNonce {
 		data := pow.prepareData(nonce)
